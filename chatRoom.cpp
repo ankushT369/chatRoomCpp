@@ -96,30 +96,50 @@ void Session::deliver(Message& incomingMessage){
 }
 using boost::asio::ip::address_v4;
 
-void accept_connection(boost::asio::io_context &io, char *port,tcp::acceptor &acceptor, Room &room, const tcp::endpoint& endpoint) {
-    tcp::socket socket(io);
+
+void accept_connection(tcp::acceptor &acceptor, Room &room) {
+    // asynchronously accepts connections in the background
     acceptor.async_accept([&](boost::system::error_code ec, tcp::socket socket) {
         if(!ec) {
             std::shared_ptr<Session> session = std::make_shared<Session>(std::move(socket), room);
             session->start();
         }
-        accept_connection(io, port,acceptor, room, endpoint);
+        accept_connection(acceptor, room);
     });
 }
 
+bool check_port(const std::string& port_str) {
+    try {
+        int port = std::stoi(port_str);
+        return (port >= 1 && port <= 65535);
+    } catch (const std::exception& e) {
+        std::cerr << "Invalid port: " << e.what() << '\n';
+        return false;
+    }
+}
 
 int main(int argc, char *argv[]) {
     try {
         if(argc < 2) {
-            std::cerr << "Usage: server <port> [<port> ...]\n";
-            return 1;
+            std::cerr << "Usage: " << argv[0] << " <port> [<port> ...]\n";
+            return 1;   // Exit with error
         }
-        Room room;
-        boost::asio::io_context io_context;
-        tcp::endpoint endpoint(tcp::v4(), atoi(argv[1]));
-        tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), std::atoi(argv[1])));
-        accept_connection(io_context, argv[1], acceptor, room, endpoint);
-        io_context.run();
+
+        std::string port = argv[1];
+
+        if(check_port(port)) {
+            Room room;
+            boost::asio::io_context io_context;
+            tcp::endpoint endpoint(tcp::v4(), std::stoi(port));
+            tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), std::stoi(port)));
+
+            accept_connection(acceptor, room);
+
+            io_context.run();
+        }else {
+            std::cerr << "Error: Invalid port number '" << port << "'. Please use a number between 1 and 65535.\n";
+            return 1;   // Exit with error
+        }
     }
     catch (std::exception& e) {
         std::cerr << "Exception: " << e.what() << "\n";

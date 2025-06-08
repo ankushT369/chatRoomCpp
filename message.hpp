@@ -83,4 +83,4 @@ class Message {
         size_t bodyLength_;
 };
 
-#endif MESSAGE_HPP
+#endif // MESSAGE_HPP
